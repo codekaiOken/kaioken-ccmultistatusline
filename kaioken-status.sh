@@ -8,7 +8,7 @@
 # Usage: Configure in ~/.claude/settings.json (see README.md)
 #
 # Output:
-#   🤖 Opus 4.6  📂 myproject  🌿 main  🧠 40%  ⚡ 60%  🔄 38%
+#   🤖 Opus 4.6  📂 myproject  🌿 main  🧠 40%  ⚡ 60% ⏳ 3h22m  🔄 38% 📅 4d12h
 #
 # Colors: green (<50%), yellow (50-79%), red (80%+)
 
@@ -50,20 +50,42 @@ if [ -n "$used_pct" ] && [ "$used_pct" != "null" ]; then
   ctx="🧠 $(color_pct "$used_int")"
 fi
 
-# ⚡ 5-hour rolling rate limit
+# ⚡ 5-hour rolling rate limit + time remaining
 five=""
 five_hr_pct=$(echo "$input" | jq -r '.rate_limits.five_hour.used_percentage // empty')
 if [ -n "$five_hr_pct" ] && [ "$five_hr_pct" != "null" ]; then
   five_int=$(printf '%.0f' "$five_hr_pct" 2>/dev/null || echo 0)
   five="⚡ $(color_pct "$five_int")"
+  # Session time remaining
+  five_resets=$(echo "$input" | jq -r '.rate_limits.five_hour.resets_at // empty')
+  if [ -n "$five_resets" ] && [ "$five_resets" != "null" ]; then
+    now=$(date +%s)
+    secs_left=$((five_resets - now))
+    if [ "$secs_left" -gt 0 ]; then
+      hrs=$((secs_left / 3600))
+      mins=$(((secs_left % 3600) / 60))
+      five="${five} ⏳ ${hrs}h${mins}m"
+    fi
+  fi
 fi
 
-# 🔄 7-day rolling rate limit
+# 🔄 7-day rolling rate limit + days until reset
 seven=""
 seven_day_pct=$(echo "$input" | jq -r '.rate_limits.seven_day.used_percentage // empty')
 if [ -n "$seven_day_pct" ] && [ "$seven_day_pct" != "null" ]; then
   seven_int=$(printf '%.0f' "$seven_day_pct" 2>/dev/null || echo 0)
   seven="🔄 $(color_pct "$seven_int")"
+  # Days until weekly reset
+  seven_resets=$(echo "$input" | jq -r '.rate_limits.seven_day.resets_at // empty')
+  if [ -n "$seven_resets" ] && [ "$seven_resets" != "null" ]; then
+    now=$(date +%s)
+    secs_left=$((seven_resets - now))
+    if [ "$secs_left" -gt 0 ]; then
+      days=$((secs_left / 86400))
+      hrs=$(((secs_left % 86400) / 3600))
+      seven="${seven} 📅 ${days}d${hrs}h"
+    fi
+  fi
 fi
 
 # --- Assemble single line ---
